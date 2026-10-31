@@ -1,0 +1,11 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>SCENE test</title>
+<style>html, body { margin: 0; background: #000; overflow: hidden; } #c { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }</style>
+<script type="importmap">{ "imports": { "three": "../../node_modules/three/build/three.module.js", "three/addons/": "../../node_modules/three/examples/jsm/" } }</script>
+</head><body><canvas id="c"></canvas>
+<script type="module">
+import { harness } from '../_harness/harness.js';
+import * as SCENE from './SCENE.js';
+await harness(SCENE, { dur: DURATION, u0: U0 });   // t in the test page = u − U0
+</script>
+</body></html>

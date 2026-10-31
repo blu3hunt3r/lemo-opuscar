@@ -43,11 +43,12 @@ const finalShader = {
   uniforms: {
     tA: { value: null }, tB: { value: null }, mixB: { value: 0 }, mode: { value: 0 }, center: { value: new THREE.Vector2(.5, .5) }, aspect: { value: 16 / 9 },
     expo: { value: 1 }, fade: { value: 1 }, vig: { value: .35 }, sat: { value: 1 }, contrast: { value: .1 }, white: { value: 0 }, whiteCol: { value: new THREE.Vector3(.93, .95, .97) },
+    tone: { value: 0 }, toneLo: { value: new THREE.Vector3(.80, .95, 1.12) }, toneHi: { value: new THREE.Vector3(1.10, 1.0, .86) }, ca: { value: 0 },
     lift: { value: new THREE.Vector3(.0, .005, .018) }, gain: { value: new THREE.Vector3(1.03, 1., .95) }, time: { value: 0 },
   },
   vertexShader: VS,
   fragmentShader: `
-    varying vec2 vUv; uniform sampler2D tA, tB; uniform float mixB, mode, aspect, expo, fade, vig, sat, contrast, time, white; uniform vec2 center; uniform vec3 lift, gain, whiteCol;
+    varying vec2 vUv; uniform sampler2D tA, tB; uniform float mixB, mode, aspect, expo, fade, vig, sat, contrast, time, white, tone, ca; uniform vec2 center; uniform vec3 lift, gain, whiteCol, toneLo, toneHi;
     vec3 neutral(vec3 color){
       const float S = 0.76; const float D = 0.15;
       float x = min(color.r, min(color.g, color.b)); float off = x < 0.08 ? x - 6.25 * x * x : 0.04; color -= off;
@@ -58,6 +59,10 @@ const finalShader = {
     vec3 toSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1./2.4)) - .055, step(.0031308, c)); }
     void main(){
       vec3 a = texture2D(tA, vUv).rgb;
+      if (ca > 0.) {   // lateral chromatic aberration, growing toward the frame edge
+        vec2 dc = (vUv - .5) * ca * dot(vUv - .5, vUv - .5) * 4.;
+        a.r = texture2D(tA, vUv - dc).r; a.b = texture2D(tA, vUv + dc).b;
+      }
       if (mixB > 0.) {
         vec3 b = texture2D(tB, vUv).rgb; float m = mixB;
         if (mode > .5) { vec2 d = vUv - center; d.x *= aspect; float r = length(d); m = smoothstep(mixB * 1.3 - .08, mixB * 1.3, r) ; m = 1. - m; }   // circular spread
@@ -68,6 +73,11 @@ const finalShader = {
       a = a * (1. + contrast) / (1. + contrast * a / (a + .6));
       vec2 d = vUv - .5; d.x *= 1.25; a *= 1. - vig * smoothstep(.25, .85, length(d));
       a = neutral(a);
+      if (tone > 0.) {   // split tone: cool shadows, warm highlights (a grade over the whole frame; the archive itself is not tinted)
+        float L = dot(a, vec3(.2126, .7152, .0722));
+        vec3 lo = toneLo / dot(toneLo, vec3(.2126, .7152, .0722)), hi = toneHi / dot(toneHi, vec3(.2126, .7152, .0722));
+        a = mix(a, a * mix(lo, hi, smoothstep(.04, .65, L)), tone);
+      }
       a = a * gain + lift * (1. - a);
       a = mix(a, whiteCol, white);   // whiteout
       a *= fade;
@@ -75,7 +85,7 @@ const finalShader = {
     }`
 };
 
-export const GRADE0 = { expo: 1, fade: 1, vig: .35, sat: 1, contrast: .1, time: 0, white: 0, lift: [0, .005, .018], gain: [1.03, 1, .95] };   // = finalShader initial values
+export const GRADE0 = { expo: 1, fade: 1, vig: .35, sat: 1, contrast: .1, time: 0, white: 0, tone: 0, ca: 0, toneLo: [.80, .95, 1.12], toneHi: [1.10, 1.0, .86], lift: [0, .005, .018], gain: [1.03, 1, .95] };   // = finalShader initial values
 
 export class Pipe {
   constructor(renderer, w, h, s = 2) {
@@ -110,7 +120,9 @@ export class Pipe {
     u.tA.value = this.rtA.texture; u.tB.value = this.rtB.texture; u.mixB.value = o.mixB || 0; u.mode.value = o.mode || 0;
     if (o.center) u.center.value.set(o.center[0], o.center[1]);
     // Every frame starts from the defaults: any grading parameter a shot doesn't set returns to its default, never inherited from the previous shot and never dependent on where a worker started (otherwise the grade jumps at segment boundaries)
-    for (const k of ['expo', 'fade', 'vig', 'sat', 'contrast', 'time', 'white']) u[k].value = o[k] !== undefined ? o[k] : GRADE0[k];
+    for (const k of ['expo', 'fade', 'vig', 'sat', 'contrast', 'time', 'white', 'tone', 'ca']) u[k].value = o[k] !== undefined ? o[k] : GRADE0[k];
+    u.toneLo.value.set(...(o.toneLo || GRADE0.toneLo)); u.toneHi.value.set(...(o.toneHi || GRADE0.toneHi));
+    u.whiteCol.value.set(...(o.whiteCol || [.93, .95, .97]));
     u.lift.value.set(...(o.lift || GRADE0.lift)); u.gain.value.set(...(o.gain || GRADE0.gain));
     this.r.setRenderTarget(null); this.fin.render(this.r);
   }

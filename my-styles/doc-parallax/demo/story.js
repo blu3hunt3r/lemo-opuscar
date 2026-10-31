@@ -1,256 +1,240 @@
-// Endurance: the demo film of Documentary Parallax. Structure and beats: TREATMENT.md. Every fact on screen: FACTS.md.
-// Scenes: NEWS (New-York Tribune, 4 Sep 1916) → into its printed portrait → PORTRAIT (the print in 3D) → whiteout → P1 (frozen in)
-// → whiteout → P3 (crushed) → whiteout → MAP (the James Caird) → dive + whiteout → P6 (the men on the beach) → 28 → black.
+// Endurance v2. Beats: TREATMENT.md. Facts on screen: FACTS.md / FACTS-v2.md. Archive: SOURCES.md / SOURCES-v2.md.
+// Real photographs carry what Hurley photographed (never altered: only light, weather, water and the lens move over them);
+// 3D reconstructions (scenes/sinking, scenes/wave), tagged RECONSTRUCTION, carry what no camera saw; the desk holds the record.
 import * as THREE from 'three';
-import { clamp, seg, ss, eo, ei, eio, track, monotone, lerp } from '/core/lib.js';
+import { clamp, seg, ss, eo, ei, eio, lerp } from '/core/lib.js';
 import { photo3d } from './engine/photo3d.js';
-import { mapScene } from './engine/map.js';
-import { title, tag, story, number, underline, RED } from './engine/type.js';
+import { shatter } from './engine/shatter.js';
+import { title, tag, story, number, RED } from './engine/type.js';
 
-export const DUR = 32;
+export const DUR = 35;
 const ASP = 16 / 9, D2R = Math.PI / 180;
 const vfovOf = hfov => 2 * Math.atan(Math.tan(hfov * D2R / 2) / ASP) / D2R;
-const TAN_NEWS = Math.tan(15 * D2R) * ASP;               // news / map cameras: 30° vertical fov → tan of half the horizontal fov
+const TV = h => Math.tan(h * D2R / 2) / ASP;   // tan of half the vertical fov for a horizontal fov h
 
 // —— timeline ——
-const PEAK = { p1: 8.75, p3: 14.0, map: 19.4, p6: 25.6 };   // whiteout peaks = the cuts
-const FADE_IN = [.45, 1.25], FADE_OUT = [30.9, 31.7];
-function whiteout(t) {
-  let w = 0;
-  for (const p of Object.values(PEAK)) {
-    const up = Math.pow(ss(seg(t, p - .6, p)), 1.6), down = 1 - ss(seg(t, p + .06, p + .78));
-    w = Math.max(w, t < p ? up : down);
+const B = { flash: 0, colour: 3.9, crush: 6.95, sink: 10.7, launch: 14.5, wave: 17.8, desk: 23.0, beach: 30.2 };
+const SH = { t0: B.crush, impact: [.57, .52] };   // the ice-crack shatter from the colour plate into the wreck
+// whiteouts: [peak, rise, fall, colour]: the flash cut, a snow gust, the blizzard (months pass), spray, the wave breaking, the paper's white
+const WH = [[B.colour, .1, .38, [1, 1, 1]], [B.sink, .32, .45, [.93, .95, .98]], [B.launch, .65, .8, [.9, .93, .96]], [B.wave, .42, .62, [.86, .9, .9]],
+  [B.desk, .3, .75, [.94, .96, .97]], [B.beach, .55, .75, [.97, .94, .87]]];
+const FADE_OUT = [34.1, 34.9];
+export function GRADE(t) {
+  let w = 0, col = [.93, .95, .97];
+  for (const [p, up, dn, c] of WH) {
+    const v = t < p ? Math.pow(ss(seg(t, p - up, p)), 1.5) : 1 - ss(seg(t, p + .05, p + .05 + dn));
+    if (v > w) { w = v; col = c; }
   }
-  return w;
+  return { white: w, whiteCol: col, fade: 1 - ss(seg(t, ...FADE_OUT)) };
 }
-export const GRADE = t => ({ white: whiteout(t), fade: ss(seg(t, ...FADE_IN)) * (1 - ss(seg(t, ...FADE_OUT))) });
-const gust = (t, p, a = 1.1) => Math.max(0, 1 - Math.abs(t - p) / a);   // snow thickens into each whiteout
+const gust = (t, p, a = 1) => Math.max(0, 1 - Math.abs(t - p) / a);
 
-// —— the front page (page pixels / 1000 = metres; y down the page) ——
-const PAGE = { w: 3.792, h: 4.216 };
-const PRINT = { x0: .894, y0: 1.625, x1: 2.264, y1: 3.570 };          // the printed portrait = assets/tex/portrait*.jpg
-PRINT.cx = (PRINT.x0 + PRINT.x1) / 2; PRINT.cy = (PRINT.y0 + PRINT.y1) / 2; PRINT.hw = (PRINT.x1 - PRINT.x0) / 2;
-const MAROONED = { x0: 1.318, x1: 1.995, y: 1.523 };                    // under "Marooned" in the headline
-// the reader's eye: centre on the page and the width of page seen, from the date line down to the headline, into the portrait (continues inside it)
-const NC = (() => {
-  const k = [[.0, 2.09, .93, 3.45], [.45, 2.08, .95, 3.42], [1.45, 2.05, 1.03, 3.36], [2.6, 1.63, 1.5, 2.2], [3.3, 1.6, 1.79, 1.86], [4.7, 1.58, 2.16, 1.22], [6.5, 1.578, 2.22, .98], [8.9, 1.575, 2.26, .82]];
-  const fx = monotone(k.map(r => [r[0], r[1]])), fy = monotone(k.map(r => [r[0], r[2]])), fw = monotone(k.map(r => [r[0], Math.log(r[3])]));
-  return t => ({ cx: fx(t), cy: fy(t), W: Math.exp(fw(t)) });
-})();
-const coversFrame = t => { const { cx, cy, W } = NC(t), H = W / ASP, m = .004; return cx - W / 2 > PRINT.x0 + m && cx + W / 2 < PRINT.x1 - m && cy - H / 2 > PRINT.y0 + m && cy + H / 2 < PRINT.y1 - m; };
-let T_IN = 4.7; for (let t = 3.0; t < 6; t += 1 / 480) if (coversFrame(t)) { T_IN = Math.ceil(t * 24) / 24; break; }   // the print fills the frame: cut inside
-const pageToScreen = (px, py, t) => { const { cx, cy, W } = NC(t), H = W / ASP; return [960 + (px - cx) / (W / 2) * 960, 540 + (py - cy) / (H / 2) * 540, 1920 / W]; };
+// —— the flash: Hurley lit the night photograph with 25 charges of flash powder wired together and fired at once (Argonauts of the
+// South, 1925, p. 159; FACTS-v2 row 23). One blinding burst out of darkness; the photograph stays, as the exposure he made ——
+const FL = [[.6, 4.2, 1]];
+function flash(t) {
+  let base = 0, peak = 0;
+  for (const [ti, pk, res] of FL) if (t >= ti) { base = res * (1 - Math.exp(-(t - ti) / .35)); peak += pk * Math.exp(-(t - ti) / .11); }
+  return { level: base + peak, peak };
+}
 
-// —— the map ——
-const LON0 = -45, LAT0 = -65, KM = 10;   // orthographic, metres per radian
-const R = { drift: null, caird: null };
-const MAPCAM = track([[19.4, [.02, -1.3, 3.7]], [20.6, [-.04, -.75, 3.8]], [23.8, [.0, 1.15, 3.6]], [24.45, [-.22, 1.02, 3.25]]]);
-const DIVE_T = [24.45, PEAK.p6];
-
-// —— events for the sound (exported by core/render/events.mjs) ——
+// —— sound events (core/render/events.mjs exports them) ——
 export const EVENTS = [
-  { t: 0, type: 'wind', dur: 9, level: 'low' },
-  { t: .2, type: 'page', note: 'a newspaper page settles' },
-  { t: .9, type: 'note', note: 'one low piano note: the score begins' },
-  { t: 2.35, type: 'pen', dur: .5, note: 'red underline under "Marooned"' },
-  { t: 3.0, type: 'swell', dur: T_IN - 3.0, note: 'push into the printed portrait' },
-  { t: T_IN, type: 'into_print', note: 'the print fills the frame' },
-  { t: 5.2, type: 'type', dur: .7, n: 21 },
-  { t: 7.6, type: 'gust', dur: PEAK.p1 - 7.6 },
-  { t: PEAK.p1, type: 'whiteout', note: 'cut to p1 (night, frozen in)' },
-  { t: PEAK.p1, type: 'ice', dur: PEAK.p3 - PEAK.p1, note: 'ice groaning, creaking hull' },
-  { t: 9.35, type: 'type', dur: .41, n: 9, note: 'ENDURANCE' },
-  { t: 9.95, type: 'type', dur: .5, n: 15 },
-  { t: 13.2, type: 'gust', dur: PEAK.p3 - 13.2 },
-  { t: PEAK.p3, type: 'whiteout', note: 'cut to p3 (crushed); timpani swell peaks here' },
-  { t: 14.55, type: 'type', dur: .4, n: 12 },
-  { t: 15.1, type: 'story', dur: .7, note: 'The ice crushed her.' },
-  { t: 15.45, type: 'crack', note: 'timber cracks under the red word' },
-  { t: 18.7, type: 'gust', dur: PEAK.map - 18.7 },
-  { t: PEAK.map, type: 'whiteout', note: 'clears onto the map' },
-  { t: 19.6, type: 'pen', dur: 1.2, note: 'drift line (dashed, pale)' },
-  { t: 20.6, type: 'route', dur: 3.2, note: 'James Caird line draws in red: pen scratch, pulse' },
-  { t: 20.8, type: 'type', dur: 1.0, n: 29 },
-  { t: 20.6, type: 'count', dur: 3.2, note: 'distance counts to 1,300 km with the line (ease in-out)' },
-  { t: 23.8, type: 'hit', level: 'soft', note: 'route lands at South Georgia' },
-  { t: 24.0, type: 'silence', dur: .95, note: 'the score stops (≥ 0.8 s): only the air' },
-  { t: 24.45, type: 'dive', dur: PEAK.p6 - 24.45 },
-  { t: PEAK.p6, type: 'whiteout', note: 'sea spray: cut to p6 (the beach)' },
-  { t: PEAK.p6, type: 'sea', dur: 6.4 },
-  { t: 26.3, type: 'count', dur: .9 },
-  { t: 27.2, type: 'hit', level: 'low', note: '28 lands: low hit, the final chord blooms' },
-  { t: 27.15, type: 'story', dur: .7, note: 'men. Every one lived.' },
+  { t: 0, type: 'wind', dur: B.colour, level: 'night' },
+  { t: FL[0][0], type: 'flash', n: 0, note: '25 charges of flash powder fired at once: one huge pop-whoomph and hiss; the picture burns into view' },
+  { t: 1.3, type: 'type', dur: .45, n: 9, note: 'ENDURANCE' },
+  { t: 1.45, type: 'type', dur: .55, n: 15 },
+  { t: B.colour, type: 'cut', note: 'flash cut to the colour plate: a low swell lands, the score enters' },
+  { t: 4.1, type: 'type', dur: .4, n: 11 },
+  { t: 4.15, type: 'count', dur: .7, note: '281 days' },
+  { t: 4.35, type: 'story', dur: .6 },
+  { t: SH.t0, type: 'crack', dur: .32, note: 'ice cracks racing across the frame' },
+  { t: SH.t0 + .32, type: 'shatter', dur: .62, note: 'the frame breaks like plate ice; shards fall' },
+  { t: 7.6, type: 'type', dur: .4, n: 12 },
+  { t: 7.8, type: 'story', dur: .6, note: 'The ice crushed her.' },
+  { t: 8.1, type: 'groan', dur: 2.2, note: 'timber groaning under pressure' },
+  { t: B.sink - .35, type: 'gust', dur: .35 },
+  { t: B.sink, type: 'whiteout', note: 'snow gust: the reconstruction of the sinking' },
+  { t: B.sink + .3, type: 'type', dur: .7, n: 21 },
+  { t: B.sink + .6, type: 'story', dur: .5, note: 'She\'s going, boys!' },
+  { t: B.sink + .5, type: 'sink', dur: 2.8, note: 'the wreck goes down bows first: a long groan, ice grinding, then nothing' },
+  { t: B.launch - .65, type: 'gust', dur: .65, note: 'blizzard: five months pass' },
+  { t: B.launch, type: 'whiteout' },
+  { t: B.launch, type: 'surf', dur: B.wave - B.launch },
+  { t: B.launch + .25, type: 'type', dur: .35, n: 11 },
+  { t: B.launch + .35, type: 'story', dur: .7, note: 'Six men. One small boat.' },
+  { t: B.wave - .42, type: 'spray', dur: .42 },
+  { t: B.wave, type: 'whiteout', note: 'spray: the storm at night (reconstruction)' },
+  { t: B.wave, type: 'storm', dur: 5.2 },
+  { t: B.wave + .5, type: 'type', dur: .75, n: 22 },
+  { t: B.wave + 1.2, type: 'story', dur: .6, note: 'Not clearing sky. A wave.' },
+  { t: B.wave + 1.6, type: 'rise', dur: 2.6, note: 'the giant wave rises: a deep swell' },
+  { t: B.wave + 4.4, type: 'break', dur: .8, note: 'the crest breaks over the lens' },
+  { t: B.desk, type: 'whiteout', note: 'to the desk under the lamp: room tone' },
+  { t: B.desk + .3, type: 'route', dur: 3.3, note: 'red ink pen on paper along the route' },
+  { t: B.desk + .4, type: 'type', dur: .75, n: 22 },
+  { t: B.desk + .3, type: 'count', dur: 3.3, note: '1,300 km, counting with the line' },
+  { t: B.desk + 3.6, type: 'hit', level: 'soft', note: 'the route lands at South Georgia' },
+  { t: B.desk + 3.7, type: 'silence', dur: .9, note: 'the score stops (≥ 0.8 s)' },
+  { t: B.desk + 4.2, type: 'slide', dur: 1.3, note: 'the camera crosses the desk: paper' },
+  { t: B.desk + 4.65, type: 'type', dur: .35, n: 10 },
+  { t: B.desk + 5.6, type: 'pen', dur: .45, note: 'red underline under "Marooned"' },
+  { t: B.beach - .55, type: 'swell', dur: .55 },
+  { t: B.beach, type: 'whiteout', note: 'paper white to the beach: sea and wind' },
+  { t: B.beach, type: 'sea', dur: DUR - B.beach },
+  { t: 31.0, type: 'count', dur: .9 },
+  { t: 31.9, type: 'hit', level: 'low', note: '28 lands: the final chord' },
+  { t: 31.35, type: 'story', dur: .6, note: 'men. Every one lived.' },
   { t: FADE_OUT[0], type: 'fade', dur: FADE_OUT[1] - FADE_OUT[0] },
   { t: DUR, type: 'end' },
 ];
 
-const loadTex = url => new Promise((res, rej) => new THREE.TextureLoader().load(url, t => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; res(t); }, undefined, rej));
-const camera = (scene, near = .05, far = 400) => { const c = new THREE.PerspectiveCamera(30, ASP, near, far); scene.add(c); return c; };
+const camOf = scene => { const c = new THREE.PerspectiveCamera(30, ASP, .05, 800); scene.add(c); return c; };
+const photoScene = async (o, snow) => {
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0);
+  const ph = await photo3d({ base: 'assets/tex/', ...o }); scene.add(ph);
+  const cam = camOf(scene);
+  return { scene, cam, ph, snow: snow ? snow(cam) : null };
+};
+const exists = async url => { try { const r = await fetch(url, { method: 'HEAD' }); return r.ok; } catch { return false; } };
+const placeholder = (label) => {   // used only while a reconstruction module is missing: a dark frame that says so
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x101418); const cam = camOf(scene);
+  return { scene, cam, state: () => ({ cam: { pos: [0, 0, 0], look: [0, 0, -1], fov: 30 }, focus: 10, aper: 0, maxCoc: 0 }), missing: label };
+};
 
-export async function build({ atmos }) {
+export async function build({ renderer, atmos, pxH }) {
   const S = {};
-  // NEWS: the page as a sheet, the printed portrait as a portal onto the PORTRAIT scene
-  {
-    const scene = new THREE.Scene(); scene.background = new THREE.Color('#050505');
-    const map = await loadTex('assets/tex/page.jpg');
-    const page = new THREE.Mesh(new THREE.PlaneGeometry(PAGE.w, PAGE.h), new THREE.MeshBasicMaterial({ map }));
-    page.position.set(PAGE.w / 2, -PAGE.h / 2, 0); scene.add(page);
-    const g = new THREE.PlaneGeometry(PRINT.x1 - PRINT.x0, PRINT.y1 - PRINT.y0), uv = g.attributes.uv;
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, (PRINT.x0 + uv.getX(i) * (PRINT.x1 - PRINT.x0)) / PAGE.w, 1 - (PRINT.y1 - uv.getY(i) * (PRINT.y1 - PRINT.y0)) / PAGE.h);
-    const portal = new THREE.Mesh(g, new THREE.ShaderMaterial({
-      uniforms: { map: { value: map }, tPortal: { value: null }, uRes: { value: new THREE.Vector2(1, 1) }, uMix: { value: 0 } },
-      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
-      fragmentShader: `uniform sampler2D map, tPortal; uniform vec2 uRes; uniform float uMix; varying vec2 vUv;
-        void main(){ vec3 a = texture2D(map, vUv).rgb; vec3 b = texture2D(tPortal, gl_FragCoord.xy / uRes).rgb; gl_FragColor = vec4(mix(a, b, uMix), 1.); }`,
-    }));
-    portal.position.set(PRINT.cx, -PRINT.cy, .0005); scene.add(portal);
-    const cam = camera(scene, .02, 20);
-    const dust = atmos(cam, { n: 450, z0: .25, z1: 3.2, size: .003, color: '#fff1d6', opacity: .35, wind: [.015, .004], fall: .02, seed: 11, density: .5 });
-    S.news = { scene, cam, portal, snow: dust };
+  S.p1 = await photoScene({ id: 'p1', hfov: 52, zNear: 8, zFar: 90, cover: 1.1, levels: [.02, 1, 1],
+    },
+    cam => atmos(cam, { n: 3400, z0: 1.2, z1: 40, size: .03, color: '#eef2f6', opacity: .85, wind: [-3.2, .25], fall: .25, seed: 5 }));
+  const colourId = (await exists('assets/tex/colour2.json')) ? 'colour2' : 'p2';   // Hurley's Paget colour plate of the ship trapped in the ice (SLNSW ON 26/16)
+  S.colour = await photoScene({ id: colourId, hfov: 50, zNear: 7, zFar: 300, cover: 1.12, levels: [0, 1, 1],
+    fog: { color: [.9, .93, .96], density: .0016, noise: .9, scale: .06, wind: [1.6, 0, .3], y0: -3, y1: .5 } },
+    cam => atmos(cam, { n: 1600, z0: 1, z1: 30, size: .025, color: '#fff4ec', opacity: .6, wind: [.8, .05], fall: .3, seed: 7 }));
+  S.p3 = await photoScene({ id: 'p3', hfov: 50, zNear: 5, zFar: 70, cover: 1.1, levels: [.03, .98, 1.1],
+    fog: { color: [.85, .82, .76], density: .004, noise: .8, scale: .07, wind: [1.2, 0, 0], y0: -4, y1: 4 } },
+    cam => atmos(cam, { n: 2800, z0: .7, z1: 30, size: .032, color: '#f4f4f2', opacity: .75, wind: [1.4, 0], fall: .55, seed: 8 }));
+  S.p5 = await photoScene({ id: 'p5', hfov: 50, zNear: 5, zFar: 120, cover: 1.1, levels: [.02, .98, 1.05], flow: { dir: [.0006, -.0058], period: 1.3, amount: 1 } },
+    cam => atmos(cam, { n: 1800, z0: .5, z1: 20, size: .02, color: '#f2f4f5', opacity: .55, wind: [-1.2, .4], fall: .2, seed: 12 }));
+  // the beach: Hurley's own lantern slide (SLNSW Slides 22/48, continuous tone, 2692 px after the crop) when its layers exist, else the LoC copy negative (1536 px)
+  const hi = await exists('assets/tex/p6_hi.json');
+  S.p6 = await photoScene(hi ? { id: 'p6_hi', hfov: 50, zNear: 6, zFar: 200, cover: 1.12, levels: [.02, .92, .88], flow: { dir: [.0012, -.0036], period: 1.6, amount: 1, layers: [0, 1] } }
+    : { id: 'p6', hfov: 50, zNear: 6, zFar: 200, cover: 1.12, levels: [.02, .98, 1.05], flow: { dir: [.0012, -.0036], period: 1.6, amount: 1 } },
+    cam => atmos(cam, { n: 2200, z0: .6, z1: 40, size: .028, color: '#f2f4f5', opacity: .7, wind: [-.6, .05], fall: .45, seed: 13 }));
+  // reconstructions (built by scenes/*/; state(u) with u = seconds since the shot began)
+  for (const [k, path] of [['sink', './scenes/sinking/sinking.js'], ['wave', './scenes/wave/wave.js']]) {
+    try { const M = await import(path); S[k] = await M.build({ THREE, renderer, atmos, pxH }); } catch (e) { console.warn('missing', path, e.message); S[k] = placeholder(k); }
   }
-  // PORTRAIT: the paper's own print of the portrait, cut into two depth bands (wall, figure)
-  {
-    const scene = new THREE.Scene(); scene.background = new THREE.Color('#000');
-    const ph = await photo3d({ base: 'assets/tex/', id: 'portrait', hfov: 40, zNear: 2.0, zFar: 3.2, cover: 1.0, levels: [.03, .97, 1.05] });
-    scene.add(ph);
-    const cam = camera(scene, .05, 50);
-    const snow = atmos(cam, { n: 2600, z0: .3, z1: 6, size: .012, color: '#eef2f6', opacity: .85, wind: [.9, -.1], fall: .5, seed: 3 });
-    S.portrait = { scene, cam, ph, snow };
+  // the desk: the period map when its scan and control points exist, else the code-drawn paper map
+  const D = await import('./scenes/desk/desk.js');
+  const route = (await (await fetch('assets/raw/route.json')).json()).lines.find(l => l.id === 'james_caird').coords;
+  let map, mapGeo, routeUV = null;
+  if (await exists('assets/raw/map_control.json')) {   // Stanford's map from "South" (1919): its own conic graticule, fitted to 160 printed crossings
+    const C = await (await fetch('assets/raw/map_control.json')).json(), q = C.fit_check?.conic?.params, [W, H] = C.image_size;
+    map = 'assets/tex/map1919.jpg';
+    mapGeo = q ? (lon, lat) => { const th = q.n * (lon - q.lon_c) * D2R, rho = q.r0 + q.r1 * (lat + 64) + q.r2 * (lat + 64) ** 2;
+      return [(q.apex_x + rho * Math.sin(th)) / W, 1 - (q.apex_y - rho * Math.cos(th)) / H]; } : fitGeo({ ...C, points: C.control_points, width: W, height: H });
+    if (await exists('assets/raw/map_boatline.json')) routeUV = (await (await fetch('assets/raw/map_boatline.json')).json()).uv;   // the printed "Boat Journey" line, traced
+  } else {
+    const g = await (await fetch('assets/tex/papermap_geo.json')).json();
+    const s0 = Math.sin(g.lat0 * D2R), c0 = Math.cos(g.lat0 * D2R);
+    mapGeo = (lon, lat) => { const f = lat * D2R, l = (lon - g.lon0) * D2R, x = Math.cos(f) * Math.sin(l), y = c0 * Math.sin(f) - s0 * Math.cos(f) * Math.cos(l); return [(g.cx + x * g.k) / g.w, 1 - (g.cy - y * g.k) / g.h]; };
+    map = 'assets/tex/papermap.jpg';
   }
-  // P1: frozen in (Hurley's night flash, 1915)
-  {
-    const scene = new THREE.Scene(); scene.background = new THREE.Color('#000');
-    const ph = await photo3d({ base: 'assets/tex/', id: 'p1', hfov: 52, zNear: 8, zFar: 90, cover: 1.08, levels: [.02, 1, 1.0] });
-    scene.add(ph);
-    const cam = camera(scene, .1, 400);
-    const snow = atmos(cam, { n: 3000, z0: 1.3, z1: 40, size: .035, color: '#eef2f6', opacity: .8, wind: [.6, 0], fall: .7, seed: 5 });
-    S.p1 = { scene, cam, ph, snow };
-  }
-  // P3: "The End" (the wreck, November 1915)
-  {
-    const scene = new THREE.Scene(); scene.background = new THREE.Color('#000');
-    const ph = await photo3d({ base: 'assets/tex/', id: 'p3', hfov: 50, zNear: 5, zFar: 70, cover: 1.08, levels: [.03, .98, 1.1] });
-    scene.add(ph);
-    const cam = camera(scene, .1, 300);
-    const snow = atmos(cam, { n: 2600, z0: .6, z1: 30, size: .035, color: '#f4f4f2', opacity: .75, wind: [.9, 0], fall: .6, seed: 8 });
-    S.p3 = { scene, cam, ph, snow };
-  }
-  // MAP: Natural Earth land, the drift (pale, dashed), the James Caird (red)
-  {
-    const geo = await (await fetch('assets/raw/land.geojson')).json();
-    const route = await (await fetch('assets/raw/route.json')).json();
-    const line = id => route.lines.find(l => l.id === id).coords;
-    R.drift = line('drift'); R.caird = line('james_caird'); R.sink = route.points.find(p => p.id === 'sank_logged').coord;
-    const m = mapScene({ geo, lon0: LON0, lat0: LAT0, scale: KM, W: 8, H: 6.4, ppm: 600, labels: [
-      ['WEDDELL SEA', -41.5, -70.6, 40, 'center'], ['ELEPHANT IS.', -55.1, -61.9, 36, 'center'], ['SOUTH GEORGIA', -36.9, -55.1, 36, 'center'],
-    ] });
-    const cam = camera(m.scene, .02, 50);
-    S.map = { scene: m.scene, cam, m };
-  }
-  // P6: the men on the beach, Elephant Island (date disputed: no date on screen)
-  {
-    const scene = new THREE.Scene(); scene.background = new THREE.Color('#000');
-    const ph = await photo3d({ base: 'assets/tex/', id: 'p6', hfov: 50, zNear: 6, zFar: 200, cover: 1.12, levels: [.02, .98, 1.05] });
-    scene.add(ph);
-    const cam = camera(scene, .1, 600);
-    const snow = atmos(cam, { n: 2400, z0: .6, z1: 40, size: .03, color: '#f2f4f5', opacity: .7, wind: [-.5, .05], fall: .5, seed: 13 });
-    S.p6 = { scene, cam, ph, snow };
-  }
+  S.desk = await D.build({ THREE, renderer, atmos, pxH }, { map, mapGeo, route, routeUV, news: 'assets/tex/news_desk.jpg',
+    prints: [{ url: 'assets/raw/p4.jpg', pos: [-.56, .0008, -.27], rot: .22, w: .16 }, { url: 'assets/raw/p2.jpg', pos: [.74, .0008, .3], rot: -.2, w: .15 }] });
+  S.shatter = shatter({ impact: SH.impact, seed: 9 });
   return S;
 }
+// a period map's own graticule → (lon, lat) → (u, v): least-squares quadratic fit to the control points [px, py, lon, lat]
+function fitGeo(C) {
+  const pts = C.points || C, W = C.width, H = C.height;
+  const basis = (lo, la) => [1, lo, la, lo * lo, lo * la, la * la];
+  const solve = (A, b) => { const n = A[0].length, M = Array.from({ length: n }, (_, i) => Array.from({ length: n + 1 }, (_, j) => j < n ? A.reduce((s, r) => s + r[i] * r[j], 0) : A.reduce((s, r, k) => s + r[i] * b[k], 0)));
+    for (let i = 0; i < n; i++) { let p = i; for (let r = i + 1; r < n; r++) if (Math.abs(M[r][i]) > Math.abs(M[p][i])) p = r; [M[i], M[p]] = [M[p], M[i]];
+      for (let r = 0; r < n; r++) if (r !== i) { const f = M[r][i] / M[i][i]; for (let c = i; c <= n; c++) M[r][c] -= f * M[i][c]; } }
+    return M.map((r, i) => r[n] / r[i]); };
+  const A = pts.map(p => basis(p[2], p[3])), cx = solve(A, pts.map(p => p[0])), cy = solve(A, pts.map(p => p[1]));
+  return (lon, lat) => { const b = basis(lon, lat), x = b.reduce((s, v, i) => s + v * cx[i], 0), y = b.reduce((s, v, i) => s + v * cy[i], 0); return [x / W, 1 - y / H]; };
+}
 
-// —— the shots: each state(t) gives the camera, focus, aperture, atmosphere ——
+// —— the shots ——
 export function SHOTS(S) {
-  const Tp = S.portrait.ph.userData.T;
-  const portraitCam = t => {   // the print as the reader's eye sees it (NC), then the camera inside it
-    const { cx, cy, W } = NC(t), H = W / ASP;
-    const sx = PRINT.hw / (W / 2), ndcX = (PRINT.cx - cx) / (W / 2), ndcY = -(PRINT.cy - cy) / (H / 2);
-    const tanH = Tp / sx, k = ss(seg(t, T_IN, 8.9));
-    const pos = [.035 * k, .012 * k, -.02 * ss(seg(t, 3.4, T_IN)) - .30 * eio(seg(t, T_IN - .3, 9.2))];
-    return { pos, look: [pos[0], pos[1], pos[2] - 1], fov: 2 * Math.atan(tanH / ASP) / D2R, shift: [-ndcX, -ndcY] };
-  };
-  const portraitState = t => ({
-    cam: portraitCam(t), focus: 2.15, aper: 18, maxCoc: 10,
-    atmos: { density: .9 * ss(seg(t, 7.2, PEAK.p1)), gust: 1.6 * gust(t, PEAK.p1, 1.2), aper: .25, cam: [0, 0] },
-    bloom: { strength: .1, radius: .5, threshold: .85 },
-  });
   const sh = [];
-  // NEWS
-  sh.push({ ...S.news, t0: 0, t1: T_IN, state: t => {
-    const { cx, cy, W } = NC(t), d = W / (2 * TAN_NEWS);
-    const mix = ss(seg(t, 2.85, Math.min(4.15, T_IN - .15)));
-    return {
-      cam: { pos: [cx, -cy, d], look: [cx, -cy, 0], fov: 30 }, focus: d, aper: 2, maxCoc: 0,
-      atmos: { density: .45, aper: .02, cam: [cx * .2, -cy * .2] },
-      portal: t > 2.8 ? { shot: { ...S.portrait, t0: 0, state: portraitState }, mesh: S.news.portal, mix } : null,
-      bloom: { strength: 0, radius: .4, threshold: 1 },
-    };
+  const atm = (t, d, g, extra = {}) => ({ density: d, gust: g, aper: .25, ...extra });
+  // 1 FLASH: the ship appears from darkness flash by flash; slow push through the ice; spindrift
+  sh.push({ ...S.p1, t0: B.flash, t1: B.colour, state: t => {
+    const f = flash(t); S.p1.ph.setFade(f.level); S.p1.ph.setTime(t);
+    S.p1.snow.material.uniforms.uOpacity.value = .85 * Math.min(1, f.level);   // the snow is only seen in the flash's light
+    const k = eio(seg(t, -.6, B.colour + 1)), pos = [lerp(.22, -.16, k), lerp(-.08, .12, k), lerp(.25, -2.2, k)];
+    return { cam: { pos, look: [pos[0], pos[1], pos[2] - 1], fov: vfovOf(52), shift: [0, .22] }, focus: 17 + pos[2], aper: 80, maxCoc: 12,
+      atmos: atm(t, .5 + .5 * gust(t, B.colour, .5), 1.2 + .8 * gust(t, B.colour, .6), { cam: [pos[0], pos[1]] }),
+      bloom: { strength: .2 + .22 * Math.min(1, f.peak), radius: .6, threshold: .7 },
+      grade: { tone: .6, contrast: .22, lift: [0, 0, 0].map((z, i) => lerp(z, [.003, .005, .009][i], Math.min(1, f.level * 2))) } };   // true black before the first flash
   } });
-  // PORTRAIT
-  sh.push({ ...S.portrait, t0: T_IN, t1: PEAK.p1, state: portraitState });
-  // P1: slow push through the ice toward the ship
-  sh.push({ ...S.p1, t0: PEAK.p1, t1: PEAK.p3, state: t => {
-    const k = eio(seg(t, PEAK.p1 - 1.2, PEAK.p3 + 1.0)), pos = [lerp(.16, -.1, k), lerp(-.06, .1, k), lerp(.1, -1.45, k)];
-    return {
-      cam: { pos, look: [pos[0], pos[1], pos[2] - 1], fov: vfovOf(52), shift: [0, .2] },
-      focus: 17.5 + pos[2], aper: 90, maxCoc: 12,
-      atmos: { density: .32 + .6 * gust(t, PEAK.p1, .9) + .6 * gust(t, PEAK.p3, 1.0), gust: 1.4 * (gust(t, PEAK.p1, .9) + gust(t, PEAK.p3, 1.0)), aper: .2, cam: [pos[0], pos[1]] },
-      bloom: { strength: .2, radius: .55, threshold: .72 },
-    };
+  // 2 COLOUR: Hurley's colour plate; a rise and drift through low mist
+  sh.push({ ...S.colour, t0: B.colour, t1: SH.t0, state: t => {
+    S.colour.ph.setTime(t);
+    const k = eio(seg(t, B.colour - .6, SH.t0 + 1.2)), pos = [lerp(.32, -.3, k), lerp(-.05, .25, k), lerp(.3, -1.5, k)];
+    return { cam: { pos, look: [pos[0], pos[1], pos[2] - 1], fov: vfovOf(50), shift: [0, .05] }, focus: 16 + pos[2], aper: 60, maxCoc: 12,
+      atmos: atm(t, .25, .3, { cam: [pos[0], pos[1]] }), bloom: { strength: .2, radius: .6, threshold: .75 },
+      grade: S.colour.ph.name !== 'p2' ? { tone: 0, sat: 1.06, contrast: .2 } : { tone: .55, contrast: .2 } };
   } });
-  // P3: rise from the dogs past the hull to the broken masts (shift lens frames the tall print; the camera itself rises for parallax)
-  const tanV3 = Math.tan(25 * D2R) / ASP;
-  sh.push({ ...S.p3, t0: PEAK.p3, t1: PEAK.map, state: t => {
-    const k = eio(seg(t, PEAK.p3 - .9, PEAK.map + .9));
-    const pos = [lerp(.08, -.06, k), lerp(0, .35, k), lerp(.15, -.4, k)], cy = lerp(-.33, .25, k);
-    return {
-      cam: { pos, look: [pos[0], pos[1], pos[2] - 1], fov: vfovOf(50), shift: [0, cy / tanV3] },
-      focus: lerp(7.5, 12.5, ss(seg(t, 14.6, 16.4))), aper: 55, maxCoc: 12,
-      atmos: { density: .25 + .7 * gust(t, PEAK.p3, .9) + .7 * gust(t, PEAK.map, 1.0), gust: 1.5 * (gust(t, PEAK.p3, .9) + gust(t, PEAK.map, 1.0)), aper: .35, cam: [pos[0], pos[1]] },
-      bloom: { strength: .12, radius: .5, threshold: .85 },
-    };
+  // 3 CRUSH: rise from the dogs to the broken masts (shift lens frames the tall print, the camera rises for parallax)
+  const tv3 = TV(50);
+  sh.push({ ...S.p3, t0: SH.t0, t1: B.sink, state: t => {
+    S.p3.ph.setTime(t);
+    const k = eio(seg(t, SH.t0 - .4, B.sink + .8)), pos = [lerp(.1, -.08, k), lerp(0, .5, k), lerp(.25, -.75, k)], cy = lerp(-.34, .27, k);
+    return { cam: { pos, look: [pos[0], pos[1], pos[2] - 1], fov: vfovOf(50), shift: [0, cy / tv3] }, focus: lerp(7, 12.5, ss(seg(t, 7.4, 9))), aper: 55, maxCoc: 12,
+      atmos: atm(t, .3 + .7 * gust(t, B.sink, .7), 1.6 * gust(t, B.sink, .7), { cam: [pos[0], pos[1]] }), bloom: { strength: .12, radius: .5, threshold: .85 },
+      grade: { tone: .55, contrast: .2 } };
   } });
-  // MAP: the drift, then the James Caird; then the dive into Elephant Island
-  const EI = S.map.m.toWorld(-54.95, -61.12);
-  sh.push({ ...S.map, t0: PEAK.map, t1: PEAK.p6, state: t => {
-    let [x, y, W] = MAPCAM(t);
-    const kd = ei(seg(t, ...DIVE_T)) ** .9;
-    x = lerp(x, EI[0], kd); y = lerp(y, EI[1], kd); W = Math.exp(lerp(Math.log(W), Math.log(.45), kd));
-    const d = W / (2 * TAN_NEWS);
-    S.map.m.draw([
-      { pts: R.drift, k: ss(seg(t, 19.6, 20.8)), width: 4, dash: [14, 12], color: 'rgba(240,235,224,.55)', dots: t > 20.8 ? [R.sink] : [] },
-      { pts: R.caird, k: eio(seg(t, 20.6, 23.8)), width: 7, head: true, dots: t > 20.65 ? [R.caird[0]].concat(t > 23.8 ? [R.caird[R.caird.length - 1]] : []) : [] },
-    ]);
-    return { cam: { pos: [x, y - .03 * d, d], look: [x, y, 0], fov: 30 }, focus: d, aper: 2, maxCoc: 0, bloom: { strength: 0, radius: .4, threshold: 1 } };
+  // 4 SINK (reconstruction)
+  sh.push({ ...S.sink, t0: B.sink, t1: B.launch, state: t => S.sink.state(t - B.sink) });
+  // 5 LAUNCH: push toward the boat; the surf runs
+  sh.push({ ...S.p5, t0: B.launch, t1: B.wave, state: t => {
+    S.p5.ph.setTime(t);
+    const k = eio(seg(t, B.launch - .8, B.wave + .6)), pos = [lerp(.16, -.12, k), lerp(-.02, .08, k), lerp(.3, -1.15, k)];
+    return { cam: { pos, look: [pos[0], pos[1], pos[2] - 1], fov: vfovOf(50) }, focus: 7 + pos[2], aper: 50, maxCoc: 12,
+      atmos: atm(t, .3 + .7 * gust(t, B.launch, .9) + .6 * gust(t, B.wave, .5), 1.5 * gust(t, B.launch, .9), { cam: [pos[0], pos[1]] }),
+      bloom: { strength: .12, radius: .5, threshold: .85 }, grade: { tone: .55, contrast: .2 } };
   } });
-  // P6: lateral drift along the waving men
-  sh.push({ ...S.p6, t0: PEAK.p6, t1: DUR + 1, state: t => {
-    const k = eio(seg(t, PEAK.p6 - .8, DUR)), pos = [lerp(.22, -.2, k), lerp(.02, .06, k), lerp(.2, -.7, k)];
-    return {
-      cam: { pos, look: [pos[0], pos[1], pos[2] - 1], fov: vfovOf(50), shift: [0, 0] },
-      focus: 7.4 + pos[2], aper: 45, maxCoc: 12,
-      atmos: { density: .22 + .7 * gust(t, PEAK.p6, .9), gust: 1.4 * gust(t, PEAK.p6, .9), aper: .35, cam: [pos[0], pos[1]] },
-      bloom: { strength: .12, radius: .5, threshold: .85 },
-    };
+  // 6 WAVE (reconstruction)
+  sh.push({ ...S.wave, t0: B.wave, t1: B.desk, state: t => S.wave.state(t - B.wave) });
+  // 7 DESK
+  sh.push({ ...S.desk, t0: B.desk, t1: B.beach, state: t => ({ ...S.desk.state(t - B.desk), grade: { tone: .15, contrast: .16 } }) });
+  // 8 BEACH: lateral drift along the waving men; the sea runs
+  sh.push({ ...S.p6, t0: B.beach, t1: DUR + 1, state: t => {
+    S.p6.ph.setTime(t);
+    const k = eio(seg(t, B.beach - .8, DUR)), pos = [lerp(.3, -.25, k), lerp(.02, .07, k), lerp(.25, -.9, k)];
+    return { cam: { pos, look: [pos[0], pos[1], pos[2] - 1], fov: vfovOf(50) }, focus: 7.4 + pos[2], aper: 45, maxCoc: 12,
+      atmos: atm(t, .22 + .7 * gust(t, B.beach, .8), 1.2 * gust(t, B.beach, .8), { cam: [pos[0], pos[1]] }), bloom: { strength: .12, radius: .5, threshold: .85 },
+      grade: { tone: .5, contrast: .2, sat: 0 } };   // the slide is monochrome: neutral before the split tone (an old stain on it has a yellow tint)
   } });
   return sh;
 }
+export function TRANS(S, shots) {
+  return [{ t0: SH.t0, t1: SH.t0 + S.shatter.dur, from: shots[1], to: shots[2], fx: S.shatter }];
+}
 
-// —— type (1920×1080 overlay); every line from FACTS.md ——
+// —— type ——
 export function TEXT(x, t) {
-  // NEWS: a red hand-drawn line under "Marooned" (a marker on the page, moves with it)
-  if (t < T_IN) {
-    const [ax, ay, s] = pageToScreen(MAROONED.x0, MAROONED.y, t), [bx] = pageToScreen(MAROONED.x1, MAROONED.y, t);
-    const k = eo(seg(t, 2.35, 2.85)), fa = ss(seg(t, 2.35, 2.45)) * (1 - ss(seg(t, 3.9, 4.3)));
-    if (k > 0 && fa > 0) { x.save(); x.globalAlpha = fa; x.strokeStyle = RED; x.lineCap = 'round'; underline(x, ax, bx, ay, k, .016 * s, 21); x.restore(); }
-  }
-  tag(x, 'SIR ERNEST SHACKLETON', 150, 968, 28, t, 5.2, { out: 8.25, id: 'portrait-tag' });
-  title(x, 'ENDURANCE', 146, 238, 168, t, 9.35, { out: 13.25 });
-  tag(x, 'WEDDELL SEA · 1915', 154, 300, 28, t, 9.95, { out: 13.25, id: 'p1-tag' });
-  tag(x, 'OCTOBER 1915', 1180, 232, 28, t, 14.55, { out: 18.75, ink: true, id: 'p3-tag' });
-  story(x, ['The', 'ice', 'crushed', 'her.'], 2, 1176, 320, 78, t, 15.1, { out: 18.75, ink: true, id: 'p3-story' });
-  tag(x, 'JAMES CAIRD · 6 MEN · 16 DAYS', 1772, 772, 28, t, 20.8, { out: 24.55, align: 'right', id: 'map-tag' });
-  number(x, 0, 1300, v => `${Math.round(v).toLocaleString('en-US')} KM`, 1772, 930, 150, t, 20.6, 3.2, { out: 24.55, align: 'right', id: 'map-number', ease: eio });   // counts with the line
-  number(x, 0, 28, v => String(Math.round(v)), 146, 318, 220, t, 26.3, .9, { out: FADE_OUT[0], ink: true, id: 'p6-number' });
-  story(x, ['men.', 'Every', 'one', 'lived.'], 3, 154, 418, 78, t, 27.15, { out: FADE_OUT[0], ink: true, id: 'p6-story' });
+  title(x, 'ENDURANCE', 140, 250, 190, t, 1.3, { out: 3.5 });   // every line is gone before its whiteout peaks (type sits above the white)
+  tag(x, 'WEDDELL SEA · 1915', 148, 318, 30, t, 1.38, { out: 3.5, id: 'p1-tag' });
+  tag(x, 'COLOUR · 1915', 148, 718, 30, t, 4.1, { out: 6.95, ink: true, id: 'colour-tag' });
+  number(x, 0, 281, v => String(Math.round(v)), 140, 920, 230, t, 4.15, .7, { out: 7.0, ink: true, id: 'colour-number' });
+  story(x, ['days', 'locked', 'in', 'the', 'ice.'], null, 148, 1010, 80, t, 4.35, { out: 7.0, ink: true, id: 'colour-story' });
+  tag(x, 'OCTOBER 1915', 1180, 232, 30, t, 7.6, { out: 10.2, ink: true, id: 'p3-tag' });
+  story(x, ['The', 'ice', 'crushed', 'her.'], 2, 1176, 324, 84, t, 7.8, { out: 10.2, ink: true, id: 'p3-story' });
+  tag(x, '21 NOV 1915 · RECONSTRUCTION', 148, 214, 30, t, B.sink + .3, { out: B.launch - .45, id: 'sink-tag' });
+  story(x, ['“She’s', 'going,', 'boys!”'], 1, 140, 312, 88, t, B.sink + .6, { out: B.launch - .45, id: 'sink-story' });
+  tag(x, '24 APRIL 1916', 1004, 112, 30, t, B.launch + .25, { out: B.wave - .45, ink: true, id: 'p5-tag' });
+  story(x, ['Six', 'men.', 'One', 'small', 'boat.'], 4, 1000, 204, 84, t, B.launch + .35, { out: B.wave - .45, maxW: 900, ink: true, id: 'p5-story' });
+  tag(x, 'MAY 1916 · RECONSTRUCTION', 148, 150, 30, t, B.wave + .5, { out: B.desk - .55, id: 'wave-tag' });
+  story(x, ['Not', 'clearing', 'sky.', 'A', 'wave.'], 4, 140, 240, 88, t, B.wave + 1.2, { out: B.desk - .55, maxW: 1000, id: 'wave-story' });
+  tag(x, 'JAMES CAIRD · 6 MEN · 16 DAYS', 1772, 862, 30, t, B.desk + .4, { out: B.desk + 3.95, align: 'right', ink: true, id: 'desk-tag' });
+  number(x, 0, 1300, v => `${Math.round(v).toLocaleString('en-US')} KM`, 1772, 1010, 170, t, B.desk + .3, 3.3, { out: B.desk + 3.95, align: 'right', ink: true, id: 'desk-number', ease: eio });
+  tag(x, '4 SEPT 1916', 148, 1000, 30, t, B.desk + 4.65, { out: B.beach - .35, ink: true, id: 'news-tag' });   // gone before the beach shows: the beach photo's date is disputed
+  number(x, 0, 28, v => String(Math.round(v)), 140, 330, 230, t, 31.0, .9, { out: FADE_OUT[0], ink: true, id: 'p6-number' });
+  story(x, ['men.', 'Every', 'one', 'lived.'], 3, 148, 430, 80, t, 31.35, { out: FADE_OUT[0], ink: true, id: 'p6-story' });
 }

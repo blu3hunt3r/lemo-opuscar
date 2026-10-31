@@ -10,9 +10,11 @@ const font = (k, s) => F[k].replace('{s}', s);
 export const REG = [];
 const reg = (id, text, x0, y0, x1, y1) => REG.push({ id, text, x0: Math.round(x0), y0: Math.round(y0), x1: Math.round(x1), y1: Math.round(y1) });
 
-function toned(x, ink, draw) {   // shadow (white type) or halo (ink type) behind the glyphs, then the glyphs
+function toned(x, ink, draw, red = false) {   // shadow (white type) or halo (ink type) behind the glyphs, then the glyphs
   x.save();
-  if (ink) { x.shadowColor = 'rgba(246,241,230,.85)'; x.shadowBlur = 16; } else { x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 18; x.shadowOffsetY = 2; }
+  if (ink) { x.shadowColor = 'rgba(246,241,230,.85)'; x.shadowBlur = 16; }
+  else if (red) { x.shadowColor = 'rgba(0,0,0,.28)'; x.shadowBlur = 8; x.shadowOffsetY = 1; }   // a dark halo muddies red on a bright sky
+  else { x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 18; x.shadowOffsetY = 2; }
   draw(); x.restore();
   draw();
 }
@@ -71,7 +73,7 @@ export function story(x, words, red, px, py, size, t, t0, { out = Infinity, gap 
       if (k > 0) {
         x.globalAlpha = k * fa; x.font = font(o.i === red ? 'serifI' : 'serif', size); x.fillStyle = o.i === red ? RED : ink ? INK : WHITE;
         const yy = y + (1 - k) * size * .12;
-        toned(x, ink, () => x.fillText(o.w, cx, yy));
+        toned(x, ink, () => x.fillText(o.w, cx, yy), o.i === red);
       }
       if (o.i === red) ux = [cx, cx + o.ww, y + size * .16];
       cx += o.ww + sp;

@@ -2,7 +2,7 @@
 usage: .venv/bin/python -I tools/layers.py <project_dir> <id> [--bands 0.42,0.70] [--sky 0.08] [--edge 3] [--max 3200]
 
 Reads assets/raw/<id>.jpg (a public-domain scan; see SOURCES.md) and writes to assets/tex/:
-  <id>_L<k>.jpg   colour of depth band k (0 = farthest). Regions a nearer band covers are filled (push-pull membrane +
+  <id>_L<k>.jpg   colour of depth band k (0 = farthest). Regions a nearer band covers are filled (LaMa inpainting, or push-pull membrane +
                   grain matched to the photo), so a small camera move reveals plausible background, never a hole.
   <id>_L<k>_a.png alpha of band k (band 0 is opaque). Feathered by --edge px, dilated 2 px under the nearer band.
   <id>_L<k>_d.png 16-bit disparity of band k, extended smoothly past its mask (so edge vertices don't stretch).
@@ -25,6 +25,7 @@ ap.add_argument('--edge', type=float, default=3); ap.add_argument('--max', type=
 ap.add_argument('--res', type=int, default=518, help='depth model input (long side, multiple of 14)')
 ap.add_argument('--crop', default='', help='trim the print border: left,top,right,bottom as fractions of the scan')
 ap.add_argument('--blur', type=float, default=0, help='Gaussian sigma (px, at full scan size) against halftone moire')
+ap.add_argument('--fill', default='lama', help='lama (LaMa inpainting, models/lama_fp32.onnx, Apache-2.0) or membrane (push-pull)')
 a = ap.parse_args()
 RAW = os.path.join(a.dir, 'assets', 'raw'); OUT = os.path.join(a.dir, 'assets', 'tex'); os.makedirs(OUT, exist_ok=True)
 MODEL = os.path.join(a.dir, 'models', 'depth_anything_v2_small.onnx')
@@ -52,6 +53,8 @@ D = np.asarray(Image.fromarray(d.astype(np.float32)).resize((W, H), Image.BICUBI
 D = np.clip(D, 0, 1)
 if a.sky > 0: D = np.where(D < a.sky, 0, D)
 
+Image.fromarray(np.clip(D * 65535 + .5, 0, 65535).astype(np.uint16)).save(os.path.join(OUT, f'{a.id}_D.png'))   # full disparity (for masks)
+
 # —— bands ——
 if a.bands: cuts = [float(v) for v in a.bands.split(',')]
 else:   # valleys of the smoothed histogram between 0.15 and 0.9
@@ -77,6 +80,42 @@ def pushpull(val, known):
     out = val.copy(); out[~known] = up[~known]; return out
 
 
+_lama = None
+def lama_fill(img, hole):
+    """Inpaint `hole` (bool HxW) in `img` (HxWx3, 0..1) with LaMa (big-lama ONNX, 512x512 input), in overlapping tiles sized to
+    the hole's thickness so thin, wide holes keep detail; tiles blend with a raised-cosine weight. Returns the filled image."""
+    global _lama
+    if _lama is None: _lama = ort.InferenceSession(os.path.join(a.dir, 'models', 'lama_fp32.onnx'), providers=['CPUExecutionProvider'])
+    Hh, Ww = hole.shape
+    ys, xs = np.where(hole)
+    if ys.size == 0: return img
+    y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    thick = max(1, min(y1 - y0, x1 - x0))
+    T = int(np.clip(2.2 * thick, 512, max(Hh, Ww)))
+    Th, Tw = min(T, Hh), min(T, Ww)
+    acc = np.zeros((Hh, Ww, 3), np.float32); wsum = np.zeros((Hh, Ww), np.float32)
+    def starts(lo, hi, size, full):
+        lo = max(0, lo - size // 4); hi = min(full, hi + size // 4)
+        if hi - lo <= size: return [int(np.clip((lo + hi - size) // 2, 0, full - size))]
+        n = int(np.ceil((hi - lo - size) / (size * .5))) + 1
+        return [int(round(lo + i * (hi - lo - size) / (n - 1))) for i in range(n)]
+    win = np.outer(np.hanning(Th + 2)[1:-1], np.hanning(Tw + 2)[1:-1]).astype(np.float32) + .02
+    for ty in starts(y0, y1, Th, Hh):
+        for tx in starts(x0, x1, Tw, Ww):
+            hm = hole[ty:ty + Th, tx:tx + Tw]
+            if not hm.any(): continue
+            tile = Image.fromarray((img[ty:ty + Th, tx:tx + Tw] * 255 + .5).astype(np.uint8)).resize((512, 512), Image.LANCZOS)
+            mk = Image.fromarray((hm * 255).astype(np.uint8)).resize((512, 512), Image.NEAREST)
+            xi = (np.asarray(tile).astype(np.float32) / 255).transpose(2, 0, 1)[None]
+            mi = (np.asarray(mk) > 127).astype(np.float32)[None, None]
+            y = _lama.run(None, {'image': xi, 'mask': mi})[0][0].transpose(1, 2, 0)
+            y = np.asarray(Image.fromarray(np.clip(y, 0, 255).astype(np.uint8)).resize((Tw, Th), Image.BICUBIC)).astype(np.float32) / 255
+            acc[ty:ty + Th, tx:tx + Tw] += y * win[..., None]; wsum[ty:ty + Th, tx:tx + Tw] += win
+    out = img.copy(); ok = hole & (wsum > 0)
+    out[ok] = acc[ok] / wsum[ok][:, None]
+    return out
+
+
 def feather(mask, px):
     if px <= 0: return mask.astype(np.float32)
     return np.clip(ndi.gaussian_filter(mask.astype(np.float32), px * .6), 0, 1)
@@ -92,10 +131,15 @@ for k in range(K):
     nearer = D >= edges[k + 1]                   # covered by the next band
     keep = inband & ~nearer
     # colour: fill the area the nearer band covers (shrink it 3 px so the fill meets real pixels under the edge)
-    hole = ndi.binary_erosion(nearer, iterations=3) if k < K - 1 else np.zeros_like(nearer)
     col = rgb.copy()
+    if a.fill == 'lama':   # LaMa continues the texture and edges behind the subject; the hole is grown 4 px to take the subject's fringe too
+        hole = ndi.binary_dilation(nearer, iterations=4) if k < K - 1 else np.zeros_like(nearer)
+        if hole.any(): col = lama_fill(rgb, hole)
+    else:
+        hole = ndi.binary_erosion(nearer, iterations=3) if k < K - 1 else np.zeros_like(nearer)
+        if hole.any():
+            for c in range(3): col[..., c] = pushpull(rgb[..., c].astype(np.float64), ~hole).astype(np.float32)
     if hole.any():
-        for c in range(3): col[..., c] = pushpull(rgb[..., c].astype(np.float64), ~hole).astype(np.float32)
         n = rng.normal(0, grain_sd, (H, W)).astype(np.float32)
         col = np.where(hole[..., None], np.clip(col + n[..., None], 0, 1), col)
     Image.fromarray((col * 255 + .5).astype(np.uint8)).save(os.path.join(OUT, f'{a.id}_L{k}.jpg'), quality=92, subsampling=0)

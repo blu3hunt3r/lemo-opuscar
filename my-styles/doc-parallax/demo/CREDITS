@@ -1,42 +1,42 @@
-Endurance — a 32-second documentary short in the "Documentary Parallax" style
+Endurance (v2) — a 35-second documentary short in the "Documentary Parallax" style
 
-Every picture in the film is a real public-domain archive document; nothing is generated, colourised or upscaled.
-Every fact on screen is in FACTS.md with its source and the quoted wording; every image is in SOURCES.md with its
-public-domain basis. The 3D comes from estimated depth (below); the type, map drawing, snow, grade and sound are code.
+The photographs, the map and the newspaper are real public-domain documents, shown unaltered except for light, weather, water and the
+lens moving over them (no colourising, no objects painted in). The two scenes tagged RECONSTRUCTION are built entirely in code and show
+what no camera recorded; what they rest on and what is approximate is in RECONSTRUCTIONS.md. Every fact on screen is in FACTS.md /
+FACTS-v2.md with its source and quoted wording; every image is in SOURCES.md / SOURCES-v2.md with its public-domain basis.
 
-Photographs and documents (all public domain)
-- Frank Hurley (1885–1962), photographs of the Imperial Trans-Antarctic Expedition, published by Underwood & Underwood, © 1916 (expired),
-  from the Library of Congress, Prints & Photographs Division, LOT 4764:
-  · "Winter flashlight scene in the Weddell Sea, showing Endurance stuck fast", 1915 — LC-DIG-ppmsca-53156 — https://www.loc.gov/item/2013646120/
-  · "Endurance after ice pressure was released" ("The End"), Nov 1915 — LC-DIG-ds-18589 — https://www.loc.gov/item/2013646126/
-  · "Lost party on Elephant Island saved at last", 1916 (date disputed, see SOURCES.md) — LC-USZ62-10323 — https://www.loc.gov/item/2013646124/
-  Public domain: published in the US in 1916 (before 1931); photographs taken before 1955 (Australia); LoC: "No known restrictions on publication."
-- New-York Tribune, Monday, September 4, 1916, page 1, with the portrait "Lieutenant Sir Ernest Shackleton" (© 1916 International Film Service, expired),
-  Chronicling America, Library of Congress — https://www.loc.gov/resource/sn83030214/1916-09-04/ed-1/?sp=1
-  Public domain: US newspapers published more than 95 years ago.
+Photographs (Frank Hurley, 1885–1962; all public domain: taken before 1955 in Australia, published in the US before 1931)
+- Night photograph of the Endurance in the ice, 1915 — Library of Congress, LC-DIG-ppmsca-53156 — https://www.loc.gov/item/2013646120/
+- "Endurance trapped by ice", 1915, Paget colour plate ON 26/16 — State Library of New South Wales (Flickr Commons, "No known copyright
+  restrictions") — https://www.flickr.com/photos/statelibraryofnsw/54014794374/
+- "The End" (the wreck), Nov 1915 — Library of Congress, LC-DIG-ds-18589 — https://www.loc.gov/item/2013646126/
+- Launching the James Caird, 24 Apr 1916 — Library of Congress, LC-USZ62-9523 — https://www.loc.gov/item/2013646116/
+- The men waving on Elephant Island, 1916 (date disputed, see SOURCES.md) — Hurley's glass lantern slide, State Library of New South Wales,
+  Slides 22/48, via Wikimedia Commons (File:AllSafeAllWell.jpg); the same photograph as Library of Congress LC-USZ62-10323 (Underwood, 1916)
+- On the desk: Ocean Camp (LC-USZ62-15943) and "Terrors of the Weddell Sea" (LC-USZ62-16497) — Library of Congress
 
-Map data
-- Natural Earth 1:10m Land, Minor Islands and Antarctic Ice Shelves — public domain — https://www.naturalearthdata.com
-- Positions from Shackleton, "South" (1919, public domain) and Antarctic Treaty ATCM XLIV Working Paper 047 (2022); the boat route between its
-  real endpoints is a sketch (assets/raw/route.json).
+Documents
+- "The Voyage of the Endurance", Stanford's Geographical Establishment, fold-out map in Shackleton, South (Heinemann, 1919; 1920 printing),
+  Museums Victoria copy via the Biodiversity Heritage Library / Internet Archive (southstoryshack00shac) — public domain
+- New-York Tribune, 4 September 1916, page 1 — Library of Congress, Chronicling America — public domain
+- Natural Earth (route geometry checks) — public domain — https://www.naturalearthdata.com
 
-Depth
-- Depth Anything V2 Small (Lihe Yang et al.), ONNX export by onnx-community — Apache License 2.0 —
-  https://huggingface.co/onnx-community/depth-anything-v2-small — run offline to estimate each photo's depth; its weights are not part of the film.
+Models used offline to prepare the photographs (their weights are not part of the film)
+- Depth Anything V2 Small (Lihe Yang et al.), ONNX export by onnx-community — Apache License 2.0 — depth for the parallax layers
+- LaMa inpainting (Suvorov et al., "big-lama"), ONNX export by Carve (huggingface.co/Carve/LaMa-ONNX) — Apache License 2.0 — fills what
+  a nearer layer hides, revealed only at its edges when the camera moves
 
 Music and sound
 - Piano: "Salamander Grand Piano V3" by Alexander Holm, licensed under CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
-- Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios) — strings, horn, timpani, bass drum
-- Everything else (drone, wind, sea, ice, the crack, paper, pens, ticks, hits) is synthesised in mix.py. The score is original.
+- Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios) — strings, brass, timpani, bass drum, tam-tam
+- Everything else (wind, the flash, the ice, the sea, the storm, the desk, the pen) is synthesised in mix.py. The score is original.
   Full list: out/SOUND.md.
 
-Libraries
+Libraries and code
 - three.js r187 (0.187.0) — MIT License, © 2010–2026 three.js authors — https://threejs.org
 - onnxruntime (MIT), NumPy, SciPy (BSD), Pillow (MIT-CMU), soundfile (BSD)
-- Lemo-Opuscar core tools (render, sampler, sfx, mux) — MIT License
+- Lemo-Opuscar core tools (render, sampler, sfx, mux) — MIT License; the post pipeline (engine/post.js) from the Paper-cut Lightbox demo,
+  the push-pull fill from the Archive Light Table demo (MIT)
 
 Fonts (self-hosted from the @fontsource npm packages, SIL Open Font License 1.1)
 - Inter (Rasmus Andersson) · IBM Plex Mono (IBM Corp.) · Cormorant Garamond (Christian Thalmann)
-
-Code adapted from the Lemo-Opuscar library (MIT): the post-processing pipeline (engine/post.js) from the Paper-cut Lightbox demo,
-the push-pull fill in tools/layers.py from the Archive Light Table demo's prep.py.
