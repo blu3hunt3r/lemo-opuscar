@@ -1,0 +1,2 @@
+{ "name": "wing-c", "private": true, "type": "module",
+  "dependencies": { "three": "0.187.0", "@fontsource/ibm-plex-mono": "^5", "@fontsource/ibm-plex-sans": "^5", "@fontsource/ibm-plex-sans-condensed": "^5" } }
