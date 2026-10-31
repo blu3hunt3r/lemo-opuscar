@@ -1,0 +1,42 @@
+Endurance — a 32-second documentary short in the "Documentary Parallax" style
+
+Every picture in the film is a real public-domain archive document; nothing is generated, colourised or upscaled.
+Every fact on screen is in FACTS.md with its source and the quoted wording; every image is in SOURCES.md with its
+public-domain basis. The 3D comes from estimated depth (below); the type, map drawing, snow, grade and sound are code.
+
+Photographs and documents (all public domain)
+- Frank Hurley (1885–1962), photographs of the Imperial Trans-Antarctic Expedition, published by Underwood & Underwood, © 1916 (expired),
+  from the Library of Congress, Prints & Photographs Division, LOT 4764:
+  · "Winter flashlight scene in the Weddell Sea, showing Endurance stuck fast", 1915 — LC-DIG-ppmsca-53156 — https://www.loc.gov/item/2013646120/
+  · "Endurance after ice pressure was released" ("The End"), Nov 1915 — LC-DIG-ds-18589 — https://www.loc.gov/item/2013646126/
+  · "Lost party on Elephant Island saved at last", 1916 (date disputed, see SOURCES.md) — LC-USZ62-10323 — https://www.loc.gov/item/2013646124/
+  Public domain: published in the US in 1916 (before 1931); photographs taken before 1955 (Australia); LoC: "No known restrictions on publication."
+- New-York Tribune, Monday, September 4, 1916, page 1, with the portrait "Lieutenant Sir Ernest Shackleton" (© 1916 International Film Service, expired),
+  Chronicling America, Library of Congress — https://www.loc.gov/resource/sn83030214/1916-09-04/ed-1/?sp=1
+  Public domain: US newspapers published more than 95 years ago.
+
+Map data
+- Natural Earth 1:10m Land, Minor Islands and Antarctic Ice Shelves — public domain — https://www.naturalearthdata.com
+- Positions from Shackleton, "South" (1919, public domain) and Antarctic Treaty ATCM XLIV Working Paper 047 (2022); the boat route between its
+  real endpoints is a sketch (assets/raw/route.json).
+
+Depth
+- Depth Anything V2 Small (Lihe Yang et al.), ONNX export by onnx-community — Apache License 2.0 —
+  https://huggingface.co/onnx-community/depth-anything-v2-small — run offline to estimate each photo's depth; its weights are not part of the film.
+
+Music and sound
+- Piano: "Salamander Grand Piano V3" by Alexander Holm, licensed under CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+- Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios) — strings, horn, timpani, bass drum
+- Everything else (drone, wind, sea, ice, the crack, paper, pens, ticks, hits) is synthesised in mix.py. The score is original.
+  Full list: out/SOUND.md.
+
+Libraries
+- three.js r187 (0.187.0) — MIT License, © 2010–2026 three.js authors — https://threejs.org
+- onnxruntime (MIT), NumPy, SciPy (BSD), Pillow (MIT-CMU), soundfile (BSD)
+- Lemo-Opuscar core tools (render, sampler, sfx, mux) — MIT License
+
+Fonts (self-hosted from the @fontsource npm packages, SIL Open Font License 1.1)
+- Inter (Rasmus Andersson) · IBM Plex Mono (IBM Corp.) · Cormorant Garamond (Christian Thalmann)
+
+Code adapted from the Lemo-Opuscar library (MIT): the post-processing pipeline (engine/post.js) from the Paper-cut Lightbox demo,
+the push-pull fill in tools/layers.py from the Archive Light Table demo's prep.py.

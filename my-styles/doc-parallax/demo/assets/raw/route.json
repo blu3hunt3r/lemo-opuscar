@@ -1,0 +1,208 @@
+{
+  "about": "Approximate positions for the Endurance / James Caird map. Coordinates are [lon, lat] in decimal degrees (WGS84, west and south negative). 'confidence' says how far to trust each point: 'recorded' = a position written down at the time (sextant/log) or a published survey fix; 'gazetteer' = a named place, position from a gazetteer / encyclopaedia; 'approx' = estimated by me from a description (good to a few km or worse); 'illustrative' = only to draw a plausible line, not a real fix.",
+  "units": "[lon, lat]",
+  "sources": {
+    "south": "Shackleton, E. H. South: The Story of Shackleton's Last Expedition 1914-1917 (Heinemann, 1919). Project Gutenberg #5199: https://www.gutenberg.org/cache/epub/5199/pg5199.txt",
+    "ats_wp047": "Antarctic Treaty Consultative Meeting XLIV, Working Paper 047 (UK and South Africa), 'Discovery of the wreck of Endurance - Updating information for HSM 93': https://documents.ats.aq/ATCM44/wp/ATCM44_wp047_e.docx",
+    "wp_grytviken": "https://en.wikipedia.org/wiki/Grytviken (pointer only)",
+    "wp_cape_valentine": "https://en.wikipedia.org/wiki/Cape_Valentine (pointer only)",
+    "wp_khb": "https://en.wikipedia.org/wiki/King_Haakon_Bay (pointer only; GNIS-derived)",
+    "wp_stromness": "https://en.wikipedia.org/wiki/Stromness,_South_Georgia (pointer only)",
+    "commons_point_wild": "Location tag on https://commons.wikimedia.org/wiki/File:AllSafeAllWell.jpg (-61.09756, -54.857) (pointer only)",
+    "wp_itae": "https://en.wikipedia.org/wiki/Imperial_Trans-Antarctic_Expedition (pointer only)"
+  },
+  "points": [
+    {
+      "id": "grytviken",
+      "label": "Grytviken, South Georgia: departure",
+      "date": "1914-12-05",
+      "coord": [-36.508, -54.281],
+      "confidence": "gazetteer",
+      "source": ["south", "wp_grytviken"],
+      "quote": "I gave the order to heave anchor at 8.45 a.m. on December 5, 1914, and the clanking of the windlass broke for us the last link with civilization. (South)"
+    },
+    {
+      "id": "beset",
+      "label": "Endurance beset (frozen in), Weddell Sea",
+      "date": "1915-01-19",
+      "coord": [-31.5, -76.567],
+      "confidence": "recorded",
+      "source": ["south"],
+      "quote": "Our position on the morning of the 19th was lat. 76° 34´ S., long. 31° 30´ W. ... The ice had closed around the ship during the night, and no water could be seen in any direction from the deck. (South)",
+      "conflict": "South's scientific appendix gives the same latitude but long. 37° 30´ W ('held up in about lat. 76° 34´ S. and long. 37° 30´ W. on January 19, 1915'). The narrative (31° 30´ W) agrees with Wikipedia and with the reported net drift of 95 miles N 80° W by 31 March; 37° 30´ looks like a typo. Use 31° 30´ W."
+    },
+    {
+      "id": "drift_south_turn",
+      "label": "Drift reaches about 77° S, then turns west and north",
+      "date": "1915-03-19",
+      "coord": [-37.783, -76.983],
+      "confidence": "recorded",
+      "source": ["south"],
+      "quote": "The ship drifted to lat. 76° 59´ S., long. 37° 47´ W. on March 19, 1915, and then west and north until crushed in lat. 69° 5´ S. and long. 51° 30´ W. (South, appendix)"
+    },
+    {
+      "id": "abandoned",
+      "label": "Ship crushed and abandoned",
+      "date": "1915-10-27",
+      "coord": [-51.5, -69.083],
+      "confidence": "recorded",
+      "source": ["south"],
+      "quote": "Then came a fateful day—Wednesday, October 27. The position was lat. 69° 5´ S., long. 51° 30´ W. (South)"
+    },
+    {
+      "id": "sank_logged",
+      "label": "Endurance sinks: position as logged by Worsley",
+      "date": "1915-11-21",
+      "coord": [-52.4417, -68.6583],
+      "confidence": "recorded",
+      "source": ["south", "ats_wp047"],
+      "quote": "November 21, 1915.—This evening, as we were lying in our tents we heard the Boss call out, 'She's going, boys!' (South). ATS WP047 lists Worsley's recorded position as 68° 39' 29.9987\" S, 52° 26' 30\" W."
+    },
+    {
+      "id": "wreck_found",
+      "label": "Wreck found by Endurance22 (3,008 m deep)",
+      "date": "2022-03-05",
+      "coord": [-52.3297, -68.7392],
+      "confidence": "recorded",
+      "source": ["ats_wp047"],
+      "quote": "On 5 March 2022, the Endurance22 expedition found the Endurance at a depth of 3,008 metres in the Weddell Sea at location 68°44'21'' S, 52°19'47'' W (ATS WP047)",
+      "note": "About 10 km (5.4 nmi) south-east of Worsley's logged position."
+    },
+    {
+      "id": "patience_camp_mar1916",
+      "label": "Patience Camp drifting north (level with Paulet Island)",
+      "date": "1916-03-17",
+      "coord": [-53.5, -63.58],
+      "confidence": "approx",
+      "source": ["wp_itae"],
+      "quote": "by 17 March, brought Patience Camp to the latitude of Paulet Island, but 60 nm (111 km) to its east (Wikipedia, ITAE)",
+      "note": "Derived: Paulet Island is at about 63°35'S 55°47'W; 60 nmi east at that latitude is about 2.2° of longitude."
+    },
+    {
+      "id": "boats_launched",
+      "label": "Ice breaks up; the three boats are launched",
+      "date": "1916-04-09",
+      "coord": [-54.0, -62.3],
+      "confidence": "illustrative",
+      "source": ["south"],
+      "quote": "...finally took to the boats on April 9, 1916, and reached Elephant Island on April 15. (South, appendix)",
+      "note": "No position for 9 April was found in South; this point only bridges Patience Camp and Elephant Island on the map."
+    },
+    {
+      "id": "cape_valentine",
+      "label": "First landing on Elephant Island, Cape Valentine",
+      "date": "1916-04-15",
+      "coord": [-54.65, -61.10],
+      "confidence": "gazetteer",
+      "source": ["south", "wp_cape_valentine"],
+      "quote": "The First Landing ever made on Elephant Island, April 15, 1916 (South, illustration caption); 'Rough sketch map of landing place and first camp at C. Valentine, Elephant Island' (South, list of illustrations)"
+    },
+    {
+      "id": "point_wild",
+      "label": "Point Wild ('Cape Wild'): camp under the upturned boats",
+      "date": "1916-04-17",
+      "coord": [-54.857, -61.098],
+      "confidence": "gazetteer",
+      "source": ["south", "commons_point_wild"],
+      "quote": "Wild ... had discovered a sandy spit seven miles to the west, about 200 yds. long, running out at right angles to the coast ... The morning of April 17 came fine and clear. (South)"
+    },
+    {
+      "id": "caird_departs",
+      "label": "James Caird leaves Elephant Island (6 men)",
+      "date": "1916-04-24",
+      "coord": [-54.857, -61.098],
+      "confidence": "gazetteer",
+      "source": ["south"],
+      "quote": "On April 25, the day after I left for South Georgia, the island was beset by heavy pack-ice (South)"
+    },
+    {
+      "id": "cave_cove",
+      "label": "James Caird lands at Cave Cove, King Haakon Bay",
+      "date": "1916-05-10",
+      "coord": [-37.30, -54.18],
+      "confidence": "approx",
+      "source": ["south", "wp_khb"],
+      "quote": "We had sighted in the meantime a big indentation which I thought must be King Haakon Bay, and I decided that we must land there. (South); 'A noon observation on this day gave our latitude as 54° 10´ 47´´ S.' (South, written at Cave Cove)",
+      "note": "Latitude from Worsley's noon sight at Cave Cove; longitude estimated at the mouth of King Haakon Bay (Wikipedia/GNIS gives the bay as 54°09'S 37°19'W)."
+    },
+    {
+      "id": "peggotty_camp",
+      "label": "Peggotty Camp, head of King Haakon Bay: start of the crossing",
+      "date": "1916-05-19",
+      "coord": [-37.12, -54.12],
+      "confidence": "approx",
+      "source": ["south", "wp_khb"],
+      "quote": "King Haakon Bay is an eight-mile sound penetrating the coast of South Georgia in an easterly direction. (South); 'We turned out at 2 a.m. on the Friday morning and had our hoosh ready an hour later.' (South; that Friday was 19 May 1916)",
+      "note": "Placed near the head of the bay on its north side, as described; uncertain to about ±5 km."
+    },
+    {
+      "id": "stromness",
+      "label": "Stromness whaling station: end of the 36-hour crossing",
+      "date": "1916-05-20",
+      "coord": [-36.712, -54.16],
+      "confidence": "gazetteer",
+      "source": ["south", "wp_stromness"],
+      "quote": "that long and racking march of thirty-six hours over the unnamed mountains and glaciers of South Georgia (South)"
+    },
+    {
+      "id": "yelcho_rescue",
+      "label": "Yelcho (Capt. Luis Pardo) rescues the 22 men at Point Wild",
+      "date": "1916-08-30",
+      "coord": [-54.857, -61.098],
+      "confidence": "gazetteer",
+      "source": ["south"],
+      "quote": "at 10 a.m. on August 30 we passed some stranded bergs. Then we saw the sea breaking on a reef, and I knew that we were just outside the island. (South)"
+    },
+    {
+      "id": "punta_arenas",
+      "label": "Punta Arenas, Chile: rescued men arrive",
+      "date": "1916-09-03",
+      "coord": [-70.917, -53.163],
+      "confidence": "gazetteer",
+      "source": ["south"],
+      "quote": "We entered the Straits of Magellan on September 3 and reached Rio Secco at 8 a.m. ... Two hours later we were at Punta Arenas (South)"
+    }
+  ],
+  "lines": [
+    {
+      "id": "voyage_out",
+      "label": "Endurance: Grytviken to the point where she was beset (simplified; she skirted the pack and the Coats Land coast)",
+      "confidence": "illustrative",
+      "coords": [[-36.508, -54.281], [-26.0, -59.5], [-18.0, -62.0], [-17.3, -64.5], [-20.0, -70.0], [-26.0, -74.0], [-31.5, -76.567]],
+      "note": "Waypoints between Grytviken and the beset point are only a sketch: South gives noon positions just before 21 December and on 24 December 1914 (lat. 62° 42´ S., long. 17° 54´ W. and lat. 64° 32´ S., long. 17° 17´ W.) at about 17-18° W, i.e. EAST of the 25° W map edge. Clip or drop this line if the map stops at 25° W."
+    },
+    {
+      "id": "drift",
+      "label": "Endurance and the camps drifting with the ice",
+      "confidence": "illustrative",
+      "coords": [[-31.5, -76.567], [-37.783, -76.983], [-45.0, -74.5], [-49.0, -71.5], [-51.5, -69.083], [-52.4417, -68.6583], [-52.3, -66.5], [-53.5, -63.58], [-54.0, -62.3], [-54.65, -61.10]],
+      "note": "Recorded points joined by a smooth guess; the real drift track zig-zagged. Fixes: beset, 19 Mar 1915, abandoned, sank (logged), Patience Camp (approx), Cape Valentine."
+    },
+    {
+      "id": "elephant_island_move",
+      "label": "Boats move from Cape Valentine to Point Wild (about 7 miles west)",
+      "confidence": "gazetteer",
+      "coords": [[-54.65, -61.10], [-54.857, -61.098]]
+    },
+    {
+      "id": "james_caird",
+      "label": "James Caird: Point Wild to Cave Cove, 24 April - 10 May 1916",
+      "confidence": "illustrative",
+      "coords": [[-54.857, -61.098], [-54.6, -60.0], [-50.6, -58.9], [-45.0, -57.0], [-39.6, -54.5], [-37.30, -54.18]],
+      "note": "Endpoints are real; the middle is a plausible line only (Shackleton first steered north to get clear of the ice, then north-east). Great-circle distance Point Wild to Cave Cove is about 1,290 km = 697 nmi = 802 statute miles, which matches Shackleton's 'over 800 miles' (statute miles), not 800 nautical miles."
+    },
+    {
+      "id": "south_georgia_crossing",
+      "label": "Shackleton, Worsley and Crean cross South Georgia, 19-20 May 1916",
+      "confidence": "illustrative",
+      "coords": [[-37.12, -54.12], [-36.95, -54.17], [-36.80, -54.14], [-36.712, -54.16]],
+      "note": "Straight-ish sketch; the real route looped south-east over the Crean and Fortuna glaciers before descending to Fortuna Bay and Stromness."
+    },
+    {
+      "id": "rescue",
+      "label": "Yelcho: Punta Arenas to Elephant Island and back, 25 Aug - 3 Sep 1916",
+      "confidence": "illustrative",
+      "coords": [[-70.917, -53.163], [-67.0, -55.5], [-60.0, -59.0], [-54.857, -61.098]]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "slug": "doc-parallax",
+  "en": "Documentary Parallax",
+  "cn": "纪实视差",
+  "based_on": "archive-lighttable",
+  "borrows": ["parallax-journey"],
+  "library_version": "f171360",
+  "created": "2026-10-31",
+  "line": "Public-domain archive photographs turned into slow cinematic 3D scenes, handed over through objects, with editorial type and one red word.",
+  "line_cn": "公有领域档案照片变成缓慢的电影感立体场景，靠物件转场，配编辑式字体与一个红色关键词。"
+}
