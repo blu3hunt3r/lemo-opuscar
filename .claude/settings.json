@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /root/.local/ffmpeg)",
+      "Bash(curl -fsSL -o /root/.local/ffmpeg/ffmpeg.tar.xz https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz)",
+      "Bash(tar -xJf /root/.local/ffmpeg/ffmpeg.tar.xz -C /root/.local/ffmpeg --strip-components=1)",
+      "Bash(ln -sf /root/.local/ffmpeg/bin/ffmpeg /root/.local/ffmpeg/bin/ffprobe /root/.local/bin/)",
+      "Bash(/root/.local/ffmpeg/bin/ffmpeg *)",
+      "Bash(/root/.local/ffmpeg/bin/ffprobe *)"
+    ]
+  }
+}
